@@ -663,6 +663,8 @@ details.settings{box-shadow:none;border:1px dashed var(--line);background:transp
 .rfsel select{width:100%;min-height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);padding:8px 12px;color:var(--ink)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}.chipbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;color:var(--ink)}.chipbtn.on{border-color:var(--brand);background:var(--mint-soft);color:var(--brand)}
 .av.x{background:var(--warn-soft);color:var(--warn)}.av.x b{font-size:.75rem}
+.addret{display:flex;align-items:center;gap:8px;justify-content:center;width:100%;border:1.5px dashed var(--ret);background:var(--ret-soft);color:var(--ret);border-radius:12px;padding:10px;font:inherit;font-weight:700;cursor:pointer;margin-top:8px}.addret .ico{width:18px;height:18px}
+.retbox{border:1.5px solid var(--ret);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:8px;background:var(--surface)}
 /* ===== v37 consistency pass ===== */
 html{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 body{font-size:15px;line-height:1.45}
@@ -936,7 +938,7 @@ const Store={db:null,uid:null,cache:{},
     else{try{localStorage.setItem('paktaw',JSON.stringify(this.cache))}catch(e){}}}
 };
 function rebuild(){
-  S.lastup={};const known={},paid={},money=[],issues={};let ex=null,lastH=null,lastAt=0,lastAmt=-1;
+  S.lastup={};const known={},paid={},money=[],issues={},manualR=[];let ex=null,lastH=null,lastAt=0,lastAmt=-1;
   const ents=Object.entries(Store.cache).sort((a,b)=>((a[1]&&a[1].at)||0)-((b[1]&&b[1].at)||0));
   for(const [id,d] of ents){
     if(!d)continue;
@@ -944,6 +946,7 @@ function rebuild(){
     else if(id.startsWith('p_'))Object.assign(paid,d.keys||{});
     else if(id.startsWith('x_'))Object.assign(issues,d.keys||{});
     else if(id.startsWith('m_'))money.push(Object.assign({id},d));
+    else if(id.startsWith('mr_'))manualR.push(Object.assign({id},d));
     else if(id==='settings')ex=d.excluded||null;
     else if(id==='company')S.company=d;
     else if(id==='meta')S.meta=d;
@@ -969,6 +972,11 @@ function rebuild(){
     if(nk!==r.k)mig[r.k]=nk;
     const prev=known2[nk];r.k=nk;r.cu=resolveCu(r.cuRaw);known2[nk]=prev?Object.assign({},prev,r,{t:Math.min(prev.t||0,r.t||0),a0:prev.a0??prev.a}):r});
   Object.keys(known).forEach(k=>delete known[k]);Object.assign(known,known2);
+  // returns added by hand while receiving a payment; once the company statement lists the same return number, it takes over
+  manualR.forEach(m=>{const cu=resolveCu(m.cu);const hit=m.n?Object.values(known).find(r=>!r.manual&&r.it==='return'&&r.cu===cu&&String(r.n).trim()===String(m.n).trim()):null;
+    if(hit){mig[m.id]=hit.k;return}
+    known[m.id]={k:m.id,n:m.n||'R-'+String(m.at||'').slice(-5),cu,cuRaw:m.cu,ct:m.ct||'warehouse',it:'return',a:m.a,a0:m.a,d:m.d,t:m.at||0,manual:true,ai:4,
+      h:['Invoice no','Type','Customer','Date','Value','Paid','Remaining','Note'],c:[m.n||'','Returned sale (added by hand)',m.cu,m.d,String(-m.a),'0',String(-m.a),m.note||'Added by hand']}});
   const remap=o=>{const out={};for(const [k,v] of Object.entries(o)){const nk=mig[k]||k;out[nk]=out[nk]&&typeof v==='object'&&v&&v.res&&!out[nk].res?out[nk]:v}return out};
   const paid2=remap(paid),iss2=remap(issues);Object.keys(paid).forEach(k=>delete paid[k]);Object.assign(paid,paid2);Object.keys(issues).forEach(k=>delete issues[k]);Object.assign(issues,iss2);
   Object.values(S.lastup).forEach(u=>{const k2={};for(const [k,v] of Object.entries(u.keys||{}))k2[mig[k]||k]=v;u.keys=k2});
@@ -2663,7 +2671,12 @@ function openReceive(preKeys,cuName,editId){
    '<div class="chead"><h2>'+(ed?'Edit receipt':'Receive payment')+'</h2><span class="grow"></span><span class="pill p-paid num">'+pk+'</span></div>'+
    '<div class="field"><label class="lbl" for="fCu">Customer</label><input class="inp" id="fCu" value="'+esc(cu)+'" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type part of the name"><div class="sugg" id="fSug" hidden></div></div>'+
    '<div class="field"><div class="chead"><span class="lbl">Sales &amp; returned invoices to settle</span><span class="grow"></span><button type="button" class="btn sm ghost" id="fAll">Select all</button></div>'+
-   '<input class="inp" id="fFind" placeholder="Filter by invoice no…" autocomplete="off"><div class="pick" id="fPick"></div></div>'+
+   '<input class="inp" id="fFind" placeholder="Filter by invoice no…" autocomplete="off"><div class="pick" id="fPick"></div>'+
+   '<button type="button" class="addret" id="fRetBtn">'+I('undo')+'<span>Add a returned invoice now</span></button><div class="retbox" id="fRet" hidden>'+
+   '<div class="grid2"><div class="field"><label class="lbl" for="frNo">Return no. (optional)</label><input class="inp num" id="frNo" inputmode="numeric" placeholder="e.g. 3901"></div><div class="field"><label class="lbl" for="frAmt">Amount</label><input class="inp num" id="frAmt" inputmode="decimal" placeholder="0"></div></div>'+
+   '<div class="grid2"><div class="field"><label class="lbl" for="frDate">Date</label><input class="inp" id="frDate" type="date"></div><div class="field"><label class="lbl" for="frNote">Items / note</label><input class="inp" id="frNote" placeholder="e.g. Gaviscon expired"></div></div>'+
+   '<p class="hint" style="margin:0">It is taken off this payment straight away. When the company statement later lists the same return number, PAKTAW matches it automatically.</p>'+
+   '<div class="actions"><button type="button" class="btn ghost" id="frCancel">Cancel</button><button type="button" class="btn pri" id="frAdd">Add return</button></div></div></div>'+
    '<div class="calc" id="fCalc"></div>'+
    '<div class="grid2"><div class="field"><label class="lbl" for="fDisc">Discount on total</label><div class="bar" style="flex-wrap:nowrap"><input class="inp num" id="fDisc" inputmode="decimal" placeholder="0" style="flex:1"><div class="seg" id="fDiscT"><button type="button" data-v="amt" aria-pressed="true">IQD</button><button type="button" data-v="pct" aria-pressed="false">%</button></div></div></div>'+
    '<div class="field"><label class="lbl" for="fAmt">Amount received</label><input class="inp num" id="fAmt" inputmode="decimal" placeholder="0"></div></div>'+
@@ -2729,6 +2742,17 @@ function openReceive(preKeys,cuName,editId){
     $('fLater').addEventListener('change',()=>{if($('fLater').checked){$('fManAmt').value=$('fNow').value;if(!amtTouched){amtTouched=true}}else{$('fManAmt').value=$('fAmt').value}laterUI();calc()});
     $('fNow').addEventListener('input',()=>{$('fManAmt').value=$('fNow').value;laterUI()});
     $('fAmt').addEventListener('input',laterUI);
+    $('fRetBtn').onclick=()=>{const n=exactCu()||$('fCu').value.trim();if(!n){toast('Pick the customer first.');return}$('fRet').hidden=false;$('fRetBtn').hidden=true;$('frDate').value=today()};
+    $('frCancel').onclick=()=>{$('fRet').hidden=true;$('fRetBtn').hidden=false};
+    $('frAdd').onclick=async()=>{const name=exactCu()||$('fCu').value.trim();const a=toNum($('frAmt').value);if(!name){toast('Pick the customer first.');return}if(!(a>0)){toast('Enter the return amount.');return}
+      const no=$('frNo').value.trim();if(no&&inv.some(i=>i.cu===name&&i.it==='return'&&String(i.n)===no)){toast('Return #'+no+' is already in the list. Tick it instead.');return}
+      const ctx=(allInv(true).find(i=>i.cu===name)||{}).ct||'warehouse';const id='mr_'+uid();const d=$('frDate').value||today();
+      const doc={n:no,cu:name,a,d,note:$('frNote').value.trim(),ct:ctx,at:Date.now()};
+      $('frAdd').disabled=true;
+      try{await Store.put(id,doc);
+        inv.push({k:id,n:no||'R-'+String(doc.at).slice(-5),cu:name,cuRaw:name,ct:ctx,it:'return',a,a0:a,orig:a,d,t:doc.at,st:'due',manual:true,part:0,h:[],c:[]});
+        chosen.add(id);if(!ed)amtTouched=false;$('frNo').value='';$('frAmt').value='';$('frNote').value='';$('fRet').hidden=true;$('fRetBtn').hidden=false;pick();toast('Return '+fmt(a)+' added and taken off')}
+      catch(e){toast('Couldn’t save the return.')}$('frAdd').disabled=false};
     $('fShort').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;short=b.dataset.v;shortUser=true;calc()});
     $('fAmt').addEventListener('input',()=>{const m=$('fManAmt');if($('fLater').checked){lastAmt=$('fAmt').value;shortUser=false;calc();return}if(!m.value.trim()||toNum(m.value)===toNum(lastAmt))m.value=$('fAmt').value;lastAmt=$('fAmt').value;shortUser=false;calc()});
     $('fAmt').addEventListener('focus',()=>{lastAmt=$('fAmt').value});
@@ -2869,8 +2893,9 @@ function openInvoice(k){
     (i.part>0&&i.st!=='paid'?'<div class="partnote">'+I('split')+'<span><b>Partly paid.</b> '+fmt(i.part)+' received, <b>'+fmt(i.a)+'</b> left of '+fmt(i.orig)+'.</span></div>':'')+
     receiptsOf(k).map(r=>'<button class="btn" data-rcpt="'+esc(r.id)+'">'+((r.part&&r.part[k]!=null)?'Part payment '+fmt(r.part[k])+' · ':'Settled by ')+'receipt '+esc(r.no||'')+(r.manual?' · manual '+esc(r.manual):'')+'</button>').join('')+
     (()=>{const x=(S.issues||{})[k];if(!x)return '';return '<div class="issbox'+(x.res?' res':'')+'"><div class="chead"><b>'+(x.res?'Resolved issue':'Issue')+' · '+esc(x.cat)+'</b><span class="grow"></span><span class="hint" style="margin:0">'+esc(niceDate(iso(new Date(x.at))))+'</span></div><div>'+esc(x.note)+'</div>'+(x.amt!=null?'<div class="hint" style="margin:0">Disputed amount: <b class="num">'+fmt(x.amt)+'</b></div>':'')+(x.res?'<div class="hint" style="margin:0">Resolved '+esc(niceDate(iso(new Date(x.res.at))))+(x.res.note?': '+esc(x.res.note):'')+'</div>':'')+'</div>'})()+
-    '<div class="actions">'+(i.st!=='paid'?'<button class="btn pri" id="iRecv">Receive payment</button>':'')+'<button class="btn ghost" id="iIss">'+(i.iss?'Edit issue':'Report issue')+'</button><button class="btn" id="iClose">Close</button></div>',
-   ()=>{$('iClose').onclick=closeSheet;if($('iRecv'))$('iRecv').onclick=()=>{closeSheet();openReceive([k])};$('iIss').onclick=()=>openIssue([k],()=>openInvoice(k))});
+    (i.manual?'<div class="vernone">'+I('info')+'<span>Added by hand while receiving a payment. It is replaced automatically when the company statement lists return #'+esc(i.n)+'.</span></div>':'')+
+    '<div class="actions">'+(i.manual&&!receiptsOf(k).length?'<button class="btn ghost danger" id="iDelR">Delete this return</button>':'')+(i.st!=='paid'?'<button class="btn pri" id="iRecv">Receive payment</button>':'')+'<button class="btn ghost" id="iIss">'+(i.iss?'Edit issue':'Report issue')+'</button><button class="btn" id="iClose">Close</button></div>',
+   ()=>{$('iClose').onclick=closeSheet;if($('iDelR'))$('iDelR').onclick=async()=>{if(!$('iDelR').dataset.a){$('iDelR').dataset.a=1;$('iDelR').textContent='Tap again to delete';return}try{await Store.del(k);rebuild();toast('Return deleted');closeSheet()}catch(e){toast('Couldn’t delete.')}};if($('iRecv'))$('iRecv').onclick=()=>{closeSheet();openReceive([k])};$('iIss').onclick=()=>openIssue([k],()=>openInvoice(k))});
 }
 function openSearch(){
   openSheet('<h2>Search</h2><input class="inp" id="sQ" type="search" placeholder="Invoice no., manual receipt no., PK no. or customer" autocomplete="off" inputmode="search"><div id="sRes"><p class="hint">Search every invoice and receipt in PAKTAW.</p></div>',()=>{
@@ -2914,7 +2939,7 @@ function diffUpload(rows){
   rows.forEach(r=>{const kn=S.known[r.k];
     if(!kn)nw.push({k:r.k,n:r.n,cu:r.cu,it:r.it,d:r.d,a:r.a});
     else if(!S.paid[r.k]&&r.a!=null&&kn.a!=null&&Math.abs(kn.a-r.a)>0.5)chg.push({k:r.k,n:r.n,cu:r.cu,it:r.it,d:r.d||kn.d,from:kn.a,to:r.a})});
-  Object.values(S.known).forEach(i=>{if(i.agr||inUp.has(i.k)||!cts.has(i.ct0||i.ct)||!cus.has(i.cu)||S.paid[i.k]||isHid(i.cu))return;
+  Object.values(S.known).forEach(i=>{if(i.agr||i.manual||inUp.has(i.k)||!cts.has(i.ct0||i.ct)||!cus.has(i.cu)||S.paid[i.k]||isHid(i.cu))return;
     closed.push({k:i.k,n:i.n,cu:i.cu,it:i.it,d:i.d,a:i.a})});
   return {nw,chg,closed,hadPrev:rows.some(r=>S.known[r.k])||closed.length>0};
 }
