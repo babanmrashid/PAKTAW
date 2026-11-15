@@ -665,6 +665,7 @@ details.settings{box-shadow:none;border:1px dashed var(--line);background:transp
 .av.x{background:var(--warn-soft);color:var(--warn)}.av.x b{font-size:.75rem}
 .addret{display:flex;align-items:center;gap:8px;justify-content:center;width:100%;border:1.5px dashed var(--ret);background:var(--ret-soft);color:var(--ret);border-radius:12px;padding:10px;font:inherit;font-weight:700;cursor:pointer;margin-top:8px}.addret .ico{width:18px;height:18px}
 .retbox{border:1.5px solid var(--ret);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:8px;background:var(--surface)}
+.btn.pri.danger{background:var(--ret);border-color:var(--ret);color:#fff}
 /* ===== v37 consistency pass ===== */
 html{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 body{font-size:15px;line-height:1.45}
@@ -874,6 +875,7 @@ textarea.inp{min-height:96px}
   <button type="button" class="selx" id="selClr" aria-label="Clear selection">✕</button>
   <span class="grow"></span>
   <button class="btn sm" id="markBtn">Mark settled</button>
+  <button class="btn sm" id="delSel">Delete</button>
   <button class="btn sm" id="issSel">Report issue</button>
   <button class="btn sm pri" id="recvSel">Receive payment</button>
 </div>
@@ -957,6 +959,7 @@ function rebuild(){
     else if(id==='limits')S.limits=d.map||{};
     else if(id==='cttypes')S.cttypes=d.map||{};
     else if(id==='regions')S.regions=d.map||{};
+    else if(id==='removed')S.removed=d.map||{};
     else if(id==='appts')S.appts=d.map||{};
     else if(id==='lastchg')S.lastchg=d;
     else if(id.startsWith('lastup_'))S.lastup[id.slice(7)]=d;
@@ -981,6 +984,7 @@ function rebuild(){
   const paid2=remap(paid),iss2=remap(issues);Object.keys(paid).forEach(k=>delete paid[k]);Object.assign(paid,paid2);Object.keys(issues).forEach(k=>delete issues[k]);Object.assign(issues,iss2);
   Object.values(S.lastup).forEach(u=>{const k2={};for(const [k,v] of Object.entries(u.keys||{}))k2[mig[k]||k]=v;u.keys=k2});
   money.forEach(x=>{if(x.inv)x.inv=x.inv.map(k=>mig[k]||k);if(x.part){const p2={};for(const [k,v] of Object.entries(x.part))p2[mig[k]||k]=v;x.part=p2}if(x.type==='in'&&x.cu)x.cu=resolveCu(x.cu)});
+  {const rm=S.removed||{};Object.keys(rm).forEach(k=>{const nk=mig[k]||k;if(known[nk])delete known[nk]})}
   // keep current-upload rows visible even before the store echoes them back
   Object.values(S.known).forEach(r=>{if(r.t===S.uploadTs&&!known[r.k])known[r.k]=r});
   {const ov=S.cttypes||{};if(Object.keys(ov).length){Object.values(known).forEach(r=>{const t=ov[cuKey(r.cu)];if(r.ct0==null)r.ct0=r.ct;r.ct=t||r.ct0});money.forEach(x=>{if(x.cu){const t=ov[cuKey(x.cu)];if(x.ct0==null)x.ct0=x.ct;x.ct=t||x.ct0}})}}
@@ -1044,6 +1048,7 @@ const IC={
  lock:'<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2.5"/>',
  info:'<circle cx="12" cy="12" r="8.8"/><path d="M12 11v5.5M12 7.8h.01"/>',
  map:'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+ trash:'<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/><path d="M10 11v5.5M14 11v5.5"/>',
  bell:'<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2H4.5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
  target:'<circle cx="12" cy="12" r="8.8"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
  merge:'<circle cx="6" cy="5.5" r="2.3"/><circle cx="6" cy="18.5" r="2.3"/><circle cx="18" cy="12" r="2.3"/><path d="M6 7.8v8.4M8.2 6.4c4 .8 7.4 2.8 7.6 5.6"/>',
@@ -2412,6 +2417,7 @@ function openSettings(){
       '<button type="button" class="mi" id="sTy"><span class="mic">'+I('users')+'</span><span class="grow"><b>Drugstores &amp; pharmacies</b><span>Set each customer’s type by hand</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sRg"><span class="mic">'+I('map')+'</span><span class="grow"><b>Cities &amp; areas</b><span>'+(regionsAll().length?regionsAll().length+' cities':'Group customers by city')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sRp"><span class="mic">'+I('users')+'</span><span class="grow"><b>Sales reps &amp; commission</b><span>'+(repsAll().length?repsAll().length+' reps':'Reps by city, with commission %')+'</span></span>'+SVG_CHEV+'</button>'+
+      (Object.keys(S.removed||{}).length?'<button type="button" class="mi" id="sDr"><span class="mic">'+I('trash')+'</span><span class="grow"><b>Deleted invoices</b><span>'+Object.keys(S.removed).length+' hidden · restore</span></span>'+SVG_CHEV+'</button>':'')+
       '<button type="button" class="mi" id="sTg"><span class="mic">'+I('target')+'</span><span class="grow"><b>Monthly target &amp; commission</b><span>'+(TG()&&TG().amount?fmt(TG().amount)+' · '+(TG().pct||0)+'%':'Not set')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sLm"><span class="mic">'+I('shield')+'</span><span class="grow"><b>Credit limits</b><span>'+(Object.keys(S.limits||{}).length?Object.keys(S.limits).length+' customers':'None set')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sAp"><span class="mic">'+I('bell')+'</span><span class="grow"><b>Collection appointments</b><span>'+apptsList().length+' upcoming</span></span>'+SVG_CHEV+'</button>'+
@@ -2423,7 +2429,7 @@ function openSettings(){
     '<div class="field"><label class="lbl" for="sOd">Overdue alert</label><div class="odset"><span>Warn me when an unpaid invoice is older than</span><input class="inp num" id="sOd" type="number" inputmode="numeric" min="1" max="999" value="'+OD()+'"><span>days</span></div><p class="hint" style="margin:0">Counted from the invoice date. You’ll see a warning on Home and a red badge on each invoice.</p></div>'+
     '<div class="actions"><button class="btn pri" id="sSave">Save</button></div>',
   ()=>{setSeg('sOrd',ORD());$('sOrd').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;setSeg('sOrd',b.dataset.v);try{await saveMeta({order:b.dataset.v});toast('Invoice order saved')}catch(x){toast('Couldn’t save.')}});
-    $('sCo').onclick=()=>openCompany(openSettings);$('sTg').onclick=openTarget;$('sTy').onclick=openTypes;$('sRg').onclick=openRegions;$('sRp').onclick=openReps;$('sMsg').onclick=openMsgTpl;$('sLm').onclick=openLimits;$('sAp').onclick=openAppts;$('sHid').onclick=openHidden;$('sPin').onclick=openPin;$('sBk').onclick=openBackup;
+    $('sCo').onclick=()=>openCompany(openSettings);$('sTg').onclick=openTarget;$('sTy').onclick=openTypes;$('sRg').onclick=openRegions;$('sRp').onclick=openReps;if($('sDr'))$('sDr').onclick=openRemoved;$('sMsg').onclick=openMsgTpl;$('sLm').onclick=openLimits;$('sAp').onclick=openAppts;$('sHid').onclick=openHidden;$('sPin').onclick=openPin;$('sBk').onclick=openBackup;
     $('sSave').onclick=async()=>{const v=parseInt($('sOd').value,10);if(!(v>=1&&v<=999)){toast('Enter a number of days between 1 and 999.');return}
       try{await saveMeta({overdueDays:v});closeSheet();render();toast('Overdue alert set to '+v+' days')}catch(e){toast('Couldn’t save. Try again.')}}});
 }
@@ -2894,8 +2900,10 @@ function openInvoice(k){
     receiptsOf(k).map(r=>'<button class="btn" data-rcpt="'+esc(r.id)+'">'+((r.part&&r.part[k]!=null)?'Part payment '+fmt(r.part[k])+' · ':'Settled by ')+'receipt '+esc(r.no||'')+(r.manual?' · manual '+esc(r.manual):'')+'</button>').join('')+
     (()=>{const x=(S.issues||{})[k];if(!x)return '';return '<div class="issbox'+(x.res?' res':'')+'"><div class="chead"><b>'+(x.res?'Resolved issue':'Issue')+' · '+esc(x.cat)+'</b><span class="grow"></span><span class="hint" style="margin:0">'+esc(niceDate(iso(new Date(x.at))))+'</span></div><div>'+esc(x.note)+'</div>'+(x.amt!=null?'<div class="hint" style="margin:0">Disputed amount: <b class="num">'+fmt(x.amt)+'</b></div>':'')+(x.res?'<div class="hint" style="margin:0">Resolved '+esc(niceDate(iso(new Date(x.res.at))))+(x.res.note?': '+esc(x.res.note):'')+'</div>':'')+'</div>'})()+
     (i.manual?'<div class="vernone">'+I('info')+'<span>Added by hand while receiving a payment. It is replaced automatically when the company statement lists return #'+esc(i.n)+'.</span></div>':'')+
-    '<div class="actions">'+(i.manual&&!receiptsOf(k).length?'<button class="btn ghost danger" id="iDelR">Delete this return</button>':'')+(i.st!=='paid'?'<button class="btn pri" id="iRecv">Receive payment</button>':'')+'<button class="btn ghost" id="iIss">'+(i.iss?'Edit issue':'Report issue')+'</button><button class="btn" id="iClose">Close</button></div>',
-   ()=>{$('iClose').onclick=closeSheet;if($('iDelR'))$('iDelR').onclick=async()=>{if(!$('iDelR').dataset.a){$('iDelR').dataset.a=1;$('iDelR').textContent='Tap again to delete';return}try{await Store.del(k);rebuild();toast('Return deleted');closeSheet()}catch(e){toast('Couldn’t delete.')}};if($('iRecv'))$('iRecv').onclick=()=>{closeSheet();openReceive([k])};$('iIss').onclick=()=>openIssue([k],()=>openInvoice(k))});
+    '<div class="actions">'+(i.manual&&!receiptsOf(k).length?'<button class="btn ghost danger" id="iDelR">Delete this return</button>':'')+(!i.manual&&!i.agr?'<button class="btn ghost danger" id="iDelI">Delete invoice</button>':'')+(i.st!=='paid'?'<button class="btn pri" id="iRecv">Receive payment</button>':'')+'<button class="btn ghost" id="iIss">'+(i.iss?'Edit issue':'Report issue')+'</button><button class="btn" id="iClose">Close</button></div>',
+   ()=>{$('iClose').onclick=closeSheet;if($('iDelI'))$('iDelI').onclick=()=>{if(receiptsOf(k).length){toast('This invoice is on receipt '+receiptsOf(k).map(r=>r.no).join(', ')+'. Edit that receipt and untick it first.');return}
+      if(!$('iDelI').dataset.a){$('iDelI').dataset.a=1;$('iDelI').textContent='Tap again to delete #'+(i.n||'');return}removeInvoices([k]).then(()=>{toast('Invoice #'+(i.n||'')+' deleted');closeSheet()}).catch(()=>toast('Couldn’t delete.'))};
+    if($('iDelR'))$('iDelR').onclick=async()=>{if(!$('iDelR').dataset.a){$('iDelR').dataset.a=1;$('iDelR').textContent='Tap again to delete';return}try{await Store.del(k);rebuild();toast('Return deleted');closeSheet()}catch(e){toast('Couldn’t delete.')}};if($('iRecv'))$('iRecv').onclick=()=>{closeSheet();openReceive([k])};$('iIss').onclick=()=>openIssue([k],()=>openInvoice(k))});
 }
 function openSearch(){
   openSheet('<h2>Search</h2><input class="inp" id="sQ" type="search" placeholder="Invoice no., manual receipt no., PK no. or customer" autocomplete="off" inputmode="search"><div id="sRes"><p class="hint">Search every invoice and receipt in PAKTAW.</p></div>',()=>{
@@ -3222,8 +3230,8 @@ setInterval(checkReminders,30000);
 })();
 
 /* ================= month-end report for the company ================= */
-function monthRange(ym){const [y,m]=ym.split('-').map(Number);return [ym+'-01',iso(new Date(y,m,0))]}
-function monthName(ym){const [y,m]=ym.split('-').map(Number);return MONTHS[m-1]+' '+y}
+function monthRange(ym){if(ym.includes('..'))return ym.split('..');const [y,m]=ym.split('-').map(Number);return [ym+'-01',iso(new Date(y,m,0))]}
+function monthName(ym){if(ym.includes('..')){const [a,b]=ym.split('..');return niceDate(a)+' – '+niceDate(b)}const [y,m]=ym.split('-').map(Number);return MONTHS[m-1]+' '+y}
 function monthEndData(ym){const r=monthRange(ym);
   const rin=S.money.filter(x=>x.type==='in'&&inR(x.date,r)&&!isHid(x.cu)).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
   const out=S.money.filter(x=>x.type==='out'&&inR(x.date,r)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -3237,7 +3245,7 @@ function monthEndModel(ym,withPhotos){
   const D=monthEndData(ym),C=S.company||{};const blocks=[];
   blocks.push({type:'kv',cols:3,items:[['Receipts',String(D.rin.length)],['Customers',String(D.cus)],['Invoices settled',String(D.nInv)],['Total collected',D.got,'brand'],['Discounts given',-D.disc,D.disc?'neg':''],['Sent to company',D.sent],
     ['Kept this month',Math.round((D.got-D.sent)*100)/100],['Cheques not cleared',D.chq.length?D.chq.length+' · '+fmt(D.chq.reduce((a,x)=>a+x.amount,0)):'0'],['Photos attached',(D.rin.length-D.noPh.length)+' of '+D.rin.length]]});
-  blocks.push({type:'text',body:'Month-end collections report for '+monthName(ym)+(C.rep?', prepared by '+C.rep:'')+'. It lists every payment collected from customers during the month, the invoices each payment settled, the money sent to the company, and the photos of the manual receipts.'});
+  blocks.push({type:'text',body:'Collections report for '+monthName(ym)+(C.rep?', prepared by '+C.rep:'')+'. It lists every payment collected from customers during the month, the invoices each payment settled, the money sent to the company, and the photos of the manual receipts.'});
   blocks.push({type:'table',title:'Payments received',sub:D.rin.length+' receipts',cols:[{t:'Date',w:1.3},{t:'PAKTAW no.',w:1.3,b:1},{t:'Manual',w:1},{t:'Customer',w:2.6},{t:'Method',w:1,muted:1},{t:'Inv.',w:.6,r:1,muted:1},{t:'Discount',w:1.4,r:1},{t:'Collected',w:1.6,r:1,b:1}],
     rows:D.rin.map(x=>[niceDate(x.date),x.no||'-',x.manual||'-',x.cu,methodName(x.method)+(x.cheque?' '+(x.cheque.no||''):''),String((x.lines||[]).length),x.discount?-x.discount:0,x.amount]),
     foot:D.rin.length?['Total','','','','','',-D.disc,D.got]:null,empty:'No payments received this month.'});
@@ -3253,24 +3261,25 @@ function monthEndModel(ym,withPhotos){
   if(D.bounced.length)blocks.push({type:'table',title:'Bounced cheques',sub:D.bounced.length,cols:[{t:'Receipt',w:1.3,b:1},{t:'Customer',w:3},{t:'Cheque no.',w:1.5},{t:'Amount',w:1.6,r:1}],rows:D.bounced.map(x=>[x.no,x.cu,(x.cheque||{}).no||'-',x.amount])});
   if(D.agr.length)blocks.push({type:'table',title:'Agreed balances still to collect',sub:D.agr.length,cols:[{t:'Agreement',w:1.8,b:1},{t:'Customer',w:3},{t:'Since',w:1.3},{t:'Still owed',w:1.8,r:1,b:1}],rows:D.agr.map(i=>[i.n,i.cu,niceDate(i.d),i.a]),foot:['Total','','',D.agr.reduce((a,i)=>a+i.a,0)]});
   if(withPhotos){const ph=D.rin.filter(x=>x.photo);if(ph.length)blocks.push({type:'images',title:'Manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.map(photoItem),perPage:2})}
-  return {title:'Month-end report',meta:[monthName(ym),C.rep?'Collected by '+C.rep:'','Generated '+niceDate(today())].filter(Boolean),company:C,blocks};
+  return {title:ym.includes('..')?'Collections report':'Month-end report',meta:[monthName(ym),C.rep?'Collected by '+C.rep:'','Generated '+niceDate(today())].filter(Boolean),company:C,blocks};
 }
 function defaultMonth(){const d=new Date();const m=d.getDate()<=10?new Date(d.getFullYear(),d.getMonth()-1,1):d;return m.getFullYear()+'-'+pad(m.getMonth()+1)}
 function openMonthEnd(ym){
   if(!needCompany(()=>openMonthEnd(ym)))return;ym=ym||defaultMonth();const D=monthEndData(ym);
   const d=new Date(),cur=d.getFullYear()+'-'+pad(d.getMonth()+1),prev=(()=>{const p=new Date(d.getFullYear(),d.getMonth()-1,1);return p.getFullYear()+'-'+pad(p.getMonth()+1)})();
-  openSheet('<h2>Month-end report</h2><p class="vsub">One file for the company: every payment, the invoices it settled, money sent, and the manual receipt photos.</p>'+
+  openSheet('<h2>Month-end report</h2><p class="vsub">Pick a month, or any dates. One file for the company: every payment, the invoices it settled, money sent, and the manual receipt photos.</p>'+
     '<div class="seg" id="meM"><button type="button" data-v="'+prev+'" aria-pressed="'+(ym===prev)+'">'+monthName(prev)+'</button><button type="button" data-v="'+cur+'" aria-pressed="'+(ym===cur)+'">'+monthName(cur)+'</button></div>'+
-    '<div class="field"><label class="lbl" for="mePick">Other month</label><input class="inp" type="month" id="mePick" value="'+ym+'"></div>'+
+    '<div class="grid2"><div class="field"><label class="lbl" for="meFrom">From</label><input class="inp" type="date" id="meFrom" value="'+monthRange(ym)[0]+'"></div><div class="field"><label class="lbl" for="meTo">To</label><input class="inp" type="date" id="meTo" value="'+monthRange(ym)[1]+'"></div></div>'+
+    (ym.includes('..')?'<p class="hint" style="margin:0">Custom period: <b>'+esc(monthName(ym))+'</b></p>':'')+
     '<div class="bkstat"><div><b class="num">'+D.rin.length+'</b><span>receipts</span></div><div><b class="num">'+fmt(D.got)+'</b><span>collected</span></div><div><b class="num">'+(D.rin.length-D.noPh.length)+'/'+D.rin.length+'</b><span>photos</span></div></div>'+
     '<div class="card flat" style="gap:0">'+[['Invoices settled',D.nInv],['Discounts given',fmt(D.disc)],['Sent to company',fmt(D.sent)],['Cheques not cleared',D.chq.length],['Agreed balances to collect',D.agr.length?fmt(D.agr.reduce((a,i)=>a+i.a,0)):'0']].map(([k,v])=>'<div class="li"><div class="main"><div class="t" style="font-weight:600">'+k+'</div></div><div class="amt num">'+v+'</div></div>').join('')+'</div>'+
     (D.noPh.length?'<div class="limwarn near">'+I('alert')+'<span><b>'+D.noPh.length+' receipt'+(D.noPh.length>1?'s have':' has')+' no photo:</b> '+D.noPh.slice(0,8).map(x=>'<a href="#" data-rcpt="'+esc(x.id)+'">'+esc(x.no)+'</a>').join(', ')+(D.noPh.length>8?' …':'')+'. Tap one to add it with Edit, or send without.</span></div>':'')+
     '<div class="xopts two"><button type="button" class="xopt" id="mePdf"><span class="xi pdf">PDF</span><span class="grow"><b>PDF with photos</b><span>Send to the company</span></span></button><button type="button" class="xopt" id="meXls"><span class="xi xls">XLS</span><span class="grow"><b>Excel</b><span>For the accounts team</span></span></button></div>'+
     '<div class="actions"><button class="btn ghost" id="meClose">Close</button></div>',
   ()=>{$('meM').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)openMonthEnd(b.dataset.v)});
-    $('mePick').addEventListener('change',e=>{if(e.target.value)openMonthEnd(e.target.value)});$('meClose').onclick=closeSheet;
+    const rng=()=>{const a=$('meFrom').value,b=$('meTo').value;if(!a||!b)return;if(a>b){toast('“From” must be before “To”.');return}openMonthEnd(a+'..'+b)};$('meFrom').addEventListener('change',rng);$('meTo').addEventListener('change',rng);$('meClose').onclick=closeSheet;
     const go=async(kind,btn)=>{if(!D.rin.length&&!D.out.length){toast('No payments in '+monthName(ym)+'.');return}btn.classList.add('busy');btn.disabled=true;
-      try{const f='Month_end_'+ym;if(kind==='xls')await saveXlsx(monthEndModel(ym,false),f);else await savePdf(monthEndModel(ym,true),f)}catch(e){toast('Couldn’t build the report. Try again.')}
+      try{const f='Collections_'+ym.replace('..','_to_');if(kind==='xls')await saveXlsx(monthEndModel(ym,false),f);else await savePdf(monthEndModel(ym,true),f)}catch(e){toast('Couldn’t build the report. Try again.')}
       if(btn.isConnected){btn.classList.remove('busy');btn.disabled=false}};
     $('mePdf').onclick=()=>go('pdf',$('mePdf'));$('meXls').onclick=()=>go('xls',$('meXls'))});
 }
@@ -3556,6 +3565,18 @@ function openRep(id){const rp=id?repsAll().find(x=>x.id===id):null;const sel=new
       const list=repsAll().filter(x=>x.id!==rec.id).map(x=>Object.assign({},x,{cities:(x.cities||[]).filter(c=>!sel.has(c))}));list.push(rec);
       try{await saveReps(list);render();toast(name+' saved');openReps()}catch(e){toast('Couldn’t save.')}}});
 }
+
+/* ---------- delete wrong / extra invoices (kept hidden even if the statement lists them again) ---------- */
+async function removeInvoices(keys){const map=Object.assign({},S.removed||{});keys.forEach(k=>{const i=S.known[k]||{};map[k]={n:i.n||'',cu:i.cu||'',it:i.it||'',a:i.a||0,d:i.d||'',at:Date.now()}});
+  await Store.put('removed',{map,at:Date.now()});S.removed=map;
+  const p=Object.keys(S.paid||{}).filter(k=>keys.includes(k));if(p.length)try{await setPaid(p,true)}catch(e){}
+  rebuild()}
+function openRemoved(){const L=Object.entries(S.removed||{}).sort((a,b)=>(b[1].at||0)-(a[1].at||0));
+  openSheet('<h2>Deleted invoices</h2><p class="vsub">Invoices you deleted stay hidden, even if a new company statement lists them again. Restore one to bring it back.</p>'+
+    (L.length?'<div class="card flat">'+L.map(([k,v])=>'<div class="li"><div class="av '+(v.it==='return'?'r':'s')+'">'+I(v.it==='return'?'undo':'fileText')+'</div><div class="main"><div class="t">#'+esc(v.n||'—')+' · '+esc(v.cu)+'</div><div class="s">'+esc(niceDate(v.d))+' · deleted '+esc(niceDate(iso(new Date(v.at))))+'</div></div><div class="amt num">'+(v.it==='return'?'−':'')+fmt(v.a)+'</div><button type="button" class="btn sm ghost" data-unrm="'+esc(k)+'">Restore</button></div>').join('')+'</div>':'<div class="empty"><span>No deleted invoices.</span></div>')+
+    '<div class="actions"><button class="btn ghost" id="drBack">Back</button></div>',
+  ()=>{$('drBack').onclick=openSettings;document.querySelectorAll('#sheet [data-unrm]').forEach(b=>b.onclick=async()=>{const map=Object.assign({},S.removed||{});delete map[b.dataset.unrm];try{await Store.put('removed',{map,at:Date.now()});S.removed=map;rebuild();toast('Invoice restored');openRemoved()}catch(e){toast('Couldn’t restore.')}})});
+}
 /* ================= events ================= */
 function route(){noKb();const v=(location.hash||'#home').slice(1);S.view=['home','invoices','money','reports'].includes(v)?v:'home';S.sel.clear();render();window.scrollTo(0,0)}
 window.addEventListener('hashchange',route);
@@ -3600,6 +3621,12 @@ $('list').addEventListener('click',e=>{if(e.target.closest('[data-inv],[data-cus
   S.sel.has(k)?S.sel.delete(k):S.sel.add(k);r.classList.toggle('sel',S.sel.has(k));updateSel()});
 $('selAll').addEventListener('click',()=>{const v=S.visible||[];const all=v.length&&v.every(i=>S.sel.has(i.k));v.forEach(i=>all?S.sel.delete(i.k):S.sel.add(i.k));render()});
 $('selClr').addEventListener('click',()=>{S.sel.clear();render()});
+$('delSel').addEventListener('click',()=>{const it=selItems().filter(i=>!i.agr);if(!it.length)return;const onR=it.filter(i=>receiptsOf(i.k).length);
+  openSheet('<h2>Delete '+it.length+' invoice'+(it.length>1?'s':'')+'?</h2><p class="vsub">Use this for invoices that came in by mistake or twice. They stay hidden even if a later company statement lists them again. You can restore them in Settings → Deleted invoices.</p>'+
+    '<div class="card flat">'+it.slice(0,12).map(invLine).join('')+(it.length>12?'<p class="hint">+'+(it.length-12)+' more</p>':'')+'</div>'+
+    (onR.length?'<div class="limwarn">'+I('alert')+'<span><b>'+onR.length+' of them are on a receipt</b> and will be skipped. Edit those receipts first.</span></div>':'')+
+    '<div class="actions"><button class="btn ghost" id="dsNo">Cancel</button><button class="btn pri danger" id="dsYes">Delete '+(it.length-onR.length)+'</button></div>',
+  ()=>{$('dsNo').onclick=closeSheet;$('dsYes').onclick=async()=>{const ks=it.filter(i=>!receiptsOf(i.k).length).map(i=>i.k);if(!ks.length){closeSheet();return}$('dsYes').disabled=true;try{await removeInvoices(ks);S.sel.clear();closeSheet();render();toast(ks.length+' invoice'+(ks.length>1?'s':'')+' deleted')}catch(e){toast('Couldn’t delete.');$('dsYes').disabled=false}}})});
 $('markBtn').addEventListener('click',async()=>{const keys=selItems().map(i=>i.k);if(!keys.length)return;
   $('markBtn').disabled=true;try{await setPaid(keys,S.tab==='paid');S.sel.clear();rebuild();toast(S.tab==='paid'?'Moved back to unpaid':keys.length+' invoices settled')}catch(e){toast('Couldn’t save. Try again.')}$('markBtn').disabled=false});
 $('recvSel').addEventListener('click',()=>{const it=selItems();const cus=new Set(it.map(i=>i.cu));if(cus.size>1){toast('Pick invoices of one customer to receive a payment.');return}openReceive(it.map(i=>i.k))});
