@@ -1,5 +1,5 @@
 /* PAKTAW offline service worker */
-const CACHE='paktaw-v2';
+const CACHE='paktaw-v3';
 const CORE=['./','./index.html'];
 const LIBS=['https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
 const FONTS='https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500&display=swap';
@@ -14,6 +14,6 @@ self.addEventListener('fetch',e=>{const u=new URL(e.request.url);
   if(u.origin===location.origin&&u.pathname.includes('/_blob/')){const id=u.pathname.split('/_blob/')[1];e.respondWith(blobFromIDB(id).then(b=>b?new Response(b,{headers:{'Content-Type':b.type||'image/jpeg'}}):new Response('',{status:404})));return}
   if(e.request.method!=='GET')return;
   // app shell: network first so updates arrive, cache when offline
-  if(u.origin===location.origin){e.respondWith(fetch(e.request).then(r=>{if(r.ok){const cp=r.clone();caches.open(CACHE).then(c=>c.put(e.request,cp))}return r}).catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('./index.html'))));return}
+  if(u.origin===location.origin){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{if(r.ok){const cp=r.clone();caches.open(CACHE).then(c=>c.put(e.request,cp))}return r}).catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('./index.html'))));return}
   // libraries and fonts: cache first
   e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(n=>{if(n.ok||n.type==='opaque'){const cp=n.clone();caches.open(CACHE).then(c=>c.put(e.request,cp))}return n})))});

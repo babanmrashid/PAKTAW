@@ -36,7 +36,7 @@
   const ns={db,user,assets,downloads};
   window.claude={use:async n=>ns[n]||null};
   window.PAKTAW_STANDALONE=true;
-  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{try{r.update()}catch(x){}}).catch(()=>{}));
 })();
 </script></head><body>
 <title>PAKTAW</title>
