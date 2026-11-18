@@ -2433,7 +2433,7 @@ function openOverdue(){
 async function saveMeta(patch){const m=Object.assign({},S.meta||{},patch);S.meta=m;await Store.put('meta',m)}
 function openSettings(){
   const C=S.company||{};const lb=S.meta&&S.meta.lastBackup;
-  openSheet('<h2>Settings</h2>'+
+  openSheet('<h2>Settings</h2><p class="hint" style="margin:-4px 0 4px">PAKTAW version 49 · 19 Nov 2026</p>'+
     '<div class="menu">'+
       '<button type="button" class="mi" id="sCo"><span class="mic">'+(C.logo?'<img src="'+esc(imgSrc(C.logo))+'" alt="">':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 9h4a1 1 0 0 1 1 1v11M8 8h3M8 12h3M8 16h3M3 21h18"/></svg>')+'</span><span class="grow"><b>Company details</b><span>'+esc(C.name||'Logo, name and phone for exports')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sMsg"><span class="mic">'+I('send')+'</span><span class="grow"><b>Statement message</b><span dir="auto">'+esc(msgTpl().split('\n')[1]||msgTpl()).slice(0,40)+'…</span></span>'+SVG_CHEV+'</button>'+
