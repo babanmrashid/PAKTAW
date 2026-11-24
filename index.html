@@ -2403,7 +2403,7 @@ function openOverdue(){
 async function saveMeta(patch){const m=Object.assign({},S.meta||{},patch);S.meta=m;await Store.put('meta',m)}
 function openSettings(){
   const C=S.company||{};const lb=S.meta&&S.meta.lastBackup;
-  openSheet('<h2>Settings</h2><p class="hint" style="margin:-4px 0 4px">PAKTAW version 52 · 24 Nov 2026</p>'+
+  openSheet('<h2>Settings</h2><p class="hint" style="margin:-4px 0 4px">PAKTAW version 53 · 24 Nov 2026</p>'+
     '<div class="menu">'+
       '<button type="button" class="mi" id="sCo"><span class="mic">'+(C.logo?'<img src="'+esc(imgSrc(C.logo))+'" alt="">':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 9h4a1 1 0 0 1 1 1v11M8 8h3M8 12h3M8 16h3M3 21h18"/></svg>')+'</span><span class="grow"><b>Company details</b><span>'+esc(C.name||'Logo, name and phone for exports')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sMsg"><span class="mic">'+I('send')+'</span><span class="grow"><b>Statement message</b><span dir="auto">'+esc(msgTpl().split('\n')[1]||msgTpl()).slice(0,40)+'…</span></span>'+SVG_CHEV+'</button>'+
@@ -2431,7 +2431,7 @@ function photoIds(docs){const ids=new Set();Object.values(docs).forEach(d=>{if(d
 function openBackup(){
   const lb=S.meta&&S.meta.lastBackup;
   const nInv=Object.keys(S.known).length,nRec=S.money.length,nIss=Object.values(S.issues||{}).filter(x=>x&&!x.res).length,nPh=photoIds(Store.cache).length;
-  openSheet('<h2>Data backup</h2><p class="vsub">Save a complete copy of PAKTAW to your phone, and restore it any time.</p>'+
+  openSheet('<h2>Data backup</h2><p class="vsub">Save a complete copy of PAKTAW to your phone, and restore it any time. <span style="opacity:.7">· PAKTAW v53</span></p>'+
     '<div class="bkstat"><div><b class="num">'+nInv+'</b><span>invoices</span></div><div><b class="num">'+nRec+'</b><span>receipts</span></div><div><b class="num">'+nIss+'</b><span>issues</span></div><div><b class="num">'+nPh+'</b><span>photos</span></div></div>'+
     '<div class="bkcard"><div class="chead"><span class="mic g">'+SVG_SAFE+'</span><div class="grow"><b>Back up now</b><div class="hint" style="margin:0">'+(lb?'Last backup: '+esc(new Date(lb).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})):'You haven’t made a backup yet')+'</div></div></div>'+
       '<label class="chk"><input type="checkbox" id="bPh" checked> Include receipt photos and logo <span class="hint" style="margin:0">(bigger file)</span></label>'+
@@ -2459,24 +2459,29 @@ function openBackup(){
         '<div class="actions"><button class="btn" id="rMerge">Add to my data</button><button class="btn danger ghost" id="rRepl">Replace all my data</button></div><div id="rConf"></div></div>';
       const doRestore=async replace=>{
         $('bRes').querySelectorAll('button').forEach(x=>x.disabled=true);toast('Restoring…');
+        const fails=[];const why=x=>String((x&&(x.code||x.message||x.name))||x||'error');
+        const step=async(label,fn)=>{try{await fn()}catch(x){fails.push(label+': '+why(x))}};
         try{
-          if(replace){for(const id of Object.keys(Store.cache)){if(id==='meta')continue;await Store.del(id)}}
+          if(replace){for(const id of Object.keys(Store.cache)){if(id==='meta')continue;await step('clear '+id,()=>Store.del(id))}}
           const docs=b.docs;const remap={};
           const as=b.photos&&Object.keys(b.photos).length?await cUse('assets'):null;
           for(const [id,data] of Object.entries(b.photos||{})){
             let ok=false;try{const r=await fetch('/_blob/'+id,{method:'HEAD'});ok=r.ok}catch(x){}
             if(!ok&&as){try{const bl=await (await fetch(data)).blob();const up=await as.upload(bl);remap[id]={id:up.id,url:up.url}}catch(x){}}}
-          const fix=d=>{if(d&&d.photo&&remap[d.photo.id])d.photo=remap[d.photo.id];if(d&&d.logo&&remap[d.logo.id])d.logo=remap[d.logo.id];return d};
-          for(const [id,d] of Object.entries(docs)){
-            if(id==='meta')continue;
-            if(!replace&&(id.startsWith('p_')||id.startsWith('x_'))&&Store.cache[id]){await Store.put(id,{keys:Object.assign({},Store.cache[id].keys||{},d.keys||{})});continue}
+          const fix=d=>{if(d&&d.photo&&d.photo.id&&remap[d.photo.id])d.photo=remap[d.photo.id];if(d&&d.logo&&d.logo.id&&remap[d.logo.id])d.logo=remap[d.logo.id];return d};
+          let n=0;const ids=Object.keys(docs).filter(id=>id!=='meta'&&docs[id]);
+          for(const id of ids){const d=docs[id];n++;if(n%10===0)toast('Restoring… '+n+' of '+ids.length);
+            if(!replace&&(id.startsWith('p_')||id.startsWith('x_'))&&Store.cache[id]){await step(id,()=>Store.put(id,{keys:Object.assign({},Store.cache[id].keys||{},d.keys||{})}));continue}
             if(!replace&&id==='company'&&Store.cache.company)continue;
-            await Store.put(id,fix(d));
+            await step(id,()=>Store.put(id,fix(d)));
           }
-          if(b.settings&&b.settings.overdueDays)await saveMeta({overdueDays:b.settings.overdueDays});
-          if(b.meta){const m=Object.assign({},b.meta);delete m.pin;delete m.lastBackup;await saveMeta(replace?m:Object.assign({},m,S.meta||{}))}
-          S.rows=[];closeSheet();rebuild();toast('Backup restored'+(b.photos&&Object.keys(b.photos).length&&!as?' · photos stay in the Claude version only':''));
-        }catch(x){toast('Restore stopped part-way. Try again with the same file.');openBackup()}};
+          await step('settings',async()=>{if(b.settings&&b.settings.overdueDays)await saveMeta({overdueDays:b.settings.overdueDays});
+            if(b.meta){const m=Object.assign({},b.meta);delete m.pin;delete m.lastBackup;await saveMeta(replace?m:Object.assign({},m,S.meta||{}))}});
+        }catch(x){fails.push('restore: '+why(x))}
+        S.rows=[];
+        try{rebuild()}catch(x){fails.push('rebuild: '+why(x))}
+        if(!fails.length){closeSheet();toast('Backup restored'+(b.photos&&Object.keys(b.photos).length&&!(await cUse('assets'))?' · photos stay in the Claude version only':''));return}
+        openBackup();$('bErr').innerHTML='<b>Restored, but '+fails.length+' part'+(fails.length>1?'s':'')+' could not be saved.</b> Try again with the same file; parts already saved are kept.<br><span style="font-weight:500;font-size:.75rem">'+esc(fails.slice(0,4).join(' · '))+'</span>';$('bErr').hidden=false};
       $('rMerge').onclick=()=>doRestore(false);
       $('rRepl').onclick=()=>{$('rConf').innerHTML='<p class="err" style="margin:8px 0">This deletes everything in PAKTAW now and puts the backup in its place.</p><button class="btn danger" id="rReplYes">Yes, replace everything</button>';$('rReplYes').onclick=()=>doRestore(true)};
     });
