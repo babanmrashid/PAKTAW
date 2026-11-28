@@ -671,6 +671,9 @@ textarea.inp{min-height:96px}
 .ico{width:20px;height:20px}.cchip .ico{width:16px;height:16px}.hic .ico{width:18px;height:18px}
 /* numbers */
 .num,.amt,.v{font-variant-numeric:tabular-nums}
+
+.phgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.phgrid:empty{display:none}.phth{position:relative;display:block;border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:3/4;background:var(--surface-2)}.phth img{width:100%;height:100%;object-fit:cover;display:block}.phth button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:9px;border:0;background:rgba(0,0,0,.6);color:#fff;font-weight:800;cursor:pointer}
+.rphoto+.rphoto,a+a .rphoto{margin-top:8px}
 #hNew{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#hNew .btn{padding:10px 6px;font-size:.8125rem;gap:5px;white-space:nowrap;background:var(--surface);border-color:transparent;box-shadow:var(--shadow)}#hNew .btn .ico{width:16px;height:16px}
 </style>
 
@@ -1482,7 +1485,7 @@ function moneyRow(x){
   const inn=x.type==='in';
   const ic=I(inn?'arrowIn':'arrowOut');
   const nI=(x.inv||[]).length+Object.keys(x.part||{}).length;
-  const sub=[inn?x.no:'',x.manual?'Manual '+x.manual:'',niceDate(x.date),nI?nI+' invoice'+(nI>1?'s':''):'',x.discount?'disc. '+fmt(x.discount):'',x.photo?'photo attached':''].filter(Boolean).map(esc).join(' · ')+
+  const sub=[inn?x.no:'',x.manual?'Manual '+x.manual:'',niceDate(x.date),nI?nI+' invoice'+(nI>1?'s':''):'',x.discount?'disc. '+fmt(x.discount):'',phs(x).length?(phs(x).length>1?phs(x).length+' photos':'photo attached'):''].filter(Boolean).map(esc).join(' · ')+
     (x.status==='draft'?' <span class="pill p-old">DRAFT</span>':'')+(x.partial?' <span class="pill p-part">PARTIAL</span>':'')+(x.cheque?' <span class="pill '+({pending:'p-old',cleared:'p-paid',bounced:'p-od'})[x.cheque.status]+'">CHEQUE '+x.cheque.status.toUpperCase()+'</span>':'');
   return '<div class="li tap" data-rcpt="'+esc(x.id)+'"><div class="av '+(inn?'in':'out')+'">'+ic+'</div><div class="main"><div class="t">'+esc(inn?x.cu:'Sent to company')+'</div><div class="s">'+sub+'</div></div><div class="amt num'+(x.bounced||x.status==='draft'?' struck':'')+'" style="color:'+(inn?'var(--brand)':'var(--warn)')+'">'+(inn?'+':'−')+fmt(x.amount)+'</div></div>';
 }
@@ -2041,7 +2044,7 @@ function receiptBlock(x){
     method:methodName(x.method)+(ch?' - cheque no. '+ch.no+(ch.bank?' - '+ch.bank:'')+' - due '+niceDate(ch.due)+(ch.status!=='pending'?' ('+ch.status+')':''):''),manualAmt:x.manualAmt,note:x.note,
     lines:(x.lines||[]).map(l=>{const pp=l.paid!=null&&Math.abs(l.paid-(l.a||0))>0.5;return {n:pp?l.n+' (part of '+fmt(l.a)+')':l.n,it:l.it,a:pp?l.paid:l.a,d:niceDate(l.d),disc:l.disc||0,dl:l.dl||''}}),sales:x.sales,returns:x.returns,gross:x.gross,discount:x.discount,drows:discRows(x),left,agreed:x.agreed||null}};
 }
-function photoItem(x){return {ph:x.photo,caption:(x.no||'')+'   Manual receipt '+(x.manual||'-'),right:fmt(x.amount),sub:x.cu+'  -  '+niceDate(x.date)+'  -  '+methodName(x.method)}}
+function photoItems(x){const l=phs(x);return l.map((p,i)=>({ph:p,caption:(x.no||'')+'   Manual receipt '+(x.manual||'-')+(l.length>1?'   ('+(i+1)+'/'+l.length+')':''),right:fmt(x.amount),sub:x.cu+'  -  '+niceDate(x.date)+'  -  '+methodName(x.method)}))}
 function reportModel(o){
   const C=S.company||{};
   const r=o.range||['0000-00-00','9999-99-99'];
@@ -2052,7 +2055,7 @@ function reportModel(o){
   if(o.kind==='receipt'){
     const x=o.receipt;
     blocks.push(receiptBlock(x));
-    if(x.photo)blocks.push({type:'images',title:'Attachment - manual receipt photo',items:[photoItem(x)],perPage:1});
+    if(x.photo)blocks.push({type:'images',title:'Attachment - manual receipt photo',items:photoItems(x),perPage:1});
     return {title:'Receipt '+(x.no||'')+(x.status==='draft'?' (DRAFT)':''),meta:[x.status==='draft'?'DRAFT - not approved yet':'',niceDate(x.date),C.rep?'Collected by '+C.rep:''].filter(Boolean),company:C,blocks};
   }
   let inv=allInv(!!o.cust),money=S.money;
@@ -2150,7 +2153,7 @@ function reportModel(o){
       foot:due.length?['Balance (sales '+fmt(totS)+' - returns '+fmt(totR)+')','','','','',due.reduce((s,i)=>s+signed(i),0)]:null,empty:'Nothing outstanding.'});
   }
   if(sec.has('attach')){const ph=pIn.filter(x=>x.photo);
-    if(ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.map(photoItem),perPage:2});
+    if(ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.flatMap(photoItems),perPage:2});
   }
   return {title:o.cust?o.cust:(o.title||'Collections report'),meta,company:C,blocks};
 }
@@ -2289,7 +2292,7 @@ function listModel(title,sub,invs,recs){
     rows:recs.map(x=>[niceDate(x.date),x.no||'-',x.manual||'-',x.type==='in'?x.cu:'Sent to company',methodName(x.method),(x.lines||[]).map(l=>(l.it==='return'?'R-':'')+l.n).join(', '),x.discount||0,x.type==='in'?x.amount:-x.amount]),
     foot:['Total','','','','','',ri.reduce((s,x)=>s+(x.discount||0),0),recs.reduce((s,x)=>s+(x.type==='in'?x.amount:-x.amount),0)]});
   const ph=ri.filter(x=>x.photo);
-  if(ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.map(photoItem),perPage:2});
+  if(ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.flatMap(photoItems),perPage:2});
   if(!blocks.length)blocks.push({type:'text',body:'No records.'});
   return {title,meta:[sub,'Generated '+niceDate(today()),C.rep?'Prepared by '+C.rep:''].filter(Boolean),company:C,blocks};
 }
@@ -2367,7 +2370,7 @@ function openCompany(back,opt){opt=opt||{};
       if(!v('cName')){$('cErr').textContent='Enter the company name.';$('cErr').hidden=false;return}
       $('cSave').disabled=true;$('cSave').textContent='Saving…';
       let logo=removeLogo?null:(C.logo||null);
-      if(logoFile){try{const as=await cUse('assets');if(!as)throw {code:'unavailable'};const up=await as.upload(await shrinkLogo(logoFile));logo={id:up.id,url:up.url}}
+      if(logoFile){try{const lb=await shrinkLogo(logoFile);const up=await storeFile(new File([lb],'logo.png',{type:lb.type||'image/png'}),{raw:true});logo=up.id?{id:up.id,url:up.url}:{lid:up.lid}}
         catch(e){$('cSave').disabled=false;$('cSave').textContent='Save details';$('cErr').textContent='Couldn’t upload the logo ('+(e.code||'error')+'). Try again.';$('cErr').hidden=false;return}}
       const data={name:v('cName'),tagline:v('cTag'),address:v('cAddr'),phone:v('cPhone'),email:v('cEmail'),rep:v('cRep'),footer:v('cFoot'),color,logo,at:Date.now()};
       try{await Store.put('company',data);S.company=data;applyBrand();closeSheet();toast('Company details saved');if(opt.next)opt.next();else if(back)back();else render()}
@@ -2403,7 +2406,7 @@ function openOverdue(){
 async function saveMeta(patch){const m=Object.assign({},S.meta||{},patch);S.meta=m;await Store.put('meta',m)}
 function openSettings(){
   const C=S.company||{};const lb=S.meta&&S.meta.lastBackup;
-  openSheet('<h2>Settings</h2><p class="hint" style="margin:-4px 0 4px">PAKTAW version 53 · 24 Nov 2026</p>'+
+  openSheet('<h2>Settings</h2><p class="hint" style="margin:-4px 0 4px">PAKTAW version 54 · 28 Nov 2026</p>'+
     '<div class="menu">'+
       '<button type="button" class="mi" id="sCo"><span class="mic">'+(C.logo?'<img src="'+esc(imgSrc(C.logo))+'" alt="">':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 9h4a1 1 0 0 1 1 1v11M8 8h3M8 12h3M8 16h3M3 21h18"/></svg>')+'</span><span class="grow"><b>Company details</b><span>'+esc(C.name||'Logo, name and phone for exports')+'</span></span>'+SVG_CHEV+'</button>'+
       '<button type="button" class="mi" id="sMsg"><span class="mic">'+I('send')+'</span><span class="grow"><b>Statement message</b><span dir="auto">'+esc(msgTpl().split('\n')[1]||msgTpl()).slice(0,40)+'…</span></span>'+SVG_CHEV+'</button>'+
@@ -2427,11 +2430,11 @@ function openSettings(){
       try{await saveMeta({overdueDays:v});closeSheet();render();toast('Overdue alert set to '+v+' days')}catch(e){toast('Couldn’t save. Try again.')}}});
 }
 async function blobToDataUrl(b){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(b)})}
-function photoIds(docs){const ids=new Set();Object.values(docs).forEach(d=>{if(d&&d.photo&&d.photo.id)ids.add(d.photo.id);if(d&&d.logo&&d.logo.id)ids.add(d.logo.id)});return [...ids]}
+function photoIds(docs){const ids=new Set();const add=p=>{if(p&&(p.lid||p.id))ids.add(p.lid||p.id)};const one=d=>{if(!d||typeof d!=='object')return;add(d.photo);add(d.logo);add(d.file);(d.photos||[]).forEach(add)};Object.values(docs).forEach(d=>{one(d);if(d&&d.keys&&typeof d.keys==='object')Object.values(d.keys).forEach(one)});return [...ids]}
 function openBackup(){
   const lb=S.meta&&S.meta.lastBackup;
   const nInv=Object.keys(S.known).length,nRec=S.money.length,nIss=Object.values(S.issues||{}).filter(x=>x&&!x.res).length,nPh=photoIds(Store.cache).length;
-  openSheet('<h2>Data backup</h2><p class="vsub">Save a complete copy of PAKTAW to your phone, and restore it any time. <span style="opacity:.7">· PAKTAW v53</span></p>'+
+  openSheet('<h2>Data backup</h2><p class="vsub">Save a complete copy of PAKTAW to your phone, and restore it any time. <span style="opacity:.7">· PAKTAW v54</span></p>'+
     '<div class="bkstat"><div><b class="num">'+nInv+'</b><span>invoices</span></div><div><b class="num">'+nRec+'</b><span>receipts</span></div><div><b class="num">'+nIss+'</b><span>issues</span></div><div><b class="num">'+nPh+'</b><span>photos</span></div></div>'+
     '<div class="bkcard"><div class="chead"><span class="mic g">'+SVG_SAFE+'</span><div class="grow"><b>Back up now</b><div class="hint" style="margin:0">'+(lb?'Last backup: '+esc(new Date(lb).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})):'You haven’t made a backup yet')+'</div></div></div>'+
       '<label class="chk"><input type="checkbox" id="bPh" checked> Include receipt photos and logo <span class="hint" style="margin:0">(bigger file)</span></label>'+
@@ -2445,7 +2448,7 @@ function openBackup(){
       try{
         const docs=JSON.parse(JSON.stringify(Store.cache));const metaB=Object.assign({},docs.meta||{});delete metaB.pin;delete metaB.lastBackup;delete docs.meta;
         const photos={};let miss=0;
-        if($('bPh').checked){for(const id of photoIds(docs)){try{const r=await fetch('/_blob/'+id);if(!r.ok)throw 0;photos[id]=await blobToDataUrl(await r.blob())}catch(e){miss++}}}
+        if($('bPh').checked){for(const id of photoIds(docs)){try{const r=await fetch(LP.urls.get(id)||('/_blob/'+id));if(!r.ok)throw 0;photos[id]=await blobToDataUrl(await r.blob())}catch(e){miss++}}}
         const backup={app:'PAKTAW',kind:'backup',version:1,created:new Date().toISOString(),company:(S.company||{}).name||'',counts:{invoices:nInv,receipts:nRec,issues:nIss,photos:Object.keys(photos).length},settings:{overdueDays:OD()},meta:metaB,docs,photos};
         const ok=await deliver(new Blob([JSON.stringify(backup)],{type:'application/json'}),'PAKTAW-backup-'+today()+'.json');
         if(ok){await saveMeta({lastBackup:Date.now()});toast('Backup saved'+(miss?' · '+miss+' photo'+(miss>1?'s':'')+' couldn’t be included':''));openBackup();return}
@@ -2466,9 +2469,10 @@ function openBackup(){
           const docs=b.docs;const remap={};
           const as=b.photos&&Object.keys(b.photos).length?await cUse('assets'):null;
           for(const [id,data] of Object.entries(b.photos||{})){
-            let ok=false;try{const r=await fetch('/_blob/'+id,{method:'HEAD'});ok=r.ok}catch(x){}
-            if(!ok&&as){try{const bl=await (await fetch(data)).blob();const up=await as.upload(bl);remap[id]={id:up.id,url:up.url}}catch(x){}}}
-          const fix=d=>{if(d&&d.photo&&d.photo.id&&remap[d.photo.id])d.photo=remap[d.photo.id];if(d&&d.logo&&d.logo.id&&remap[d.logo.id])d.logo=remap[d.logo.id];return d};
+            let ok=LP.urls.has(id);if(!ok&&as){try{const r=await fetch('/_blob/'+id,{method:'HEAD'});ok=r.ok}catch(x){}}
+            if(ok)continue;
+            try{const bl=await (await fetch(data)).blob();if(as){const up=await as.upload(bl);remap[id]={id:up.id,url:up.url}}else await LP.put(id,bl)}catch(x){fails.push('photo: '+why(x))}}
+          const rp=p=>p&&p.id&&remap[p.id]?remap[p.id]:p;const fix=d=>{if(!d||typeof d!=='object')return d;if(d.photo)d.photo=rp(d.photo);if(d.logo)d.logo=rp(d.logo);if(d.file)d.file=rp(d.file);if(d.photos)d.photos=d.photos.map(rp);if(d.keys&&typeof d.keys==='object')Object.values(d.keys).forEach(v=>{if(v&&v.photo)v.photo=rp(v.photo)});return d};
           let n=0;const ids=Object.keys(docs).filter(id=>id!=='meta'&&docs[id]);
           for(const id of ids){const d=docs[id];n++;if(n%10===0)toast('Restoring… '+n+' of '+ids.length);
             if(!replace&&(id.startsWith('p_')||id.startsWith('x_'))&&Store.cache[id]){await step(id,()=>Store.put(id,{keys:Object.assign({},Store.cache[id].keys||{},d.keys||{})}));continue}
@@ -2480,7 +2484,7 @@ function openBackup(){
         }catch(x){fails.push('restore: '+why(x))}
         S.rows=[];
         try{rebuild()}catch(x){fails.push('rebuild: '+why(x))}
-        if(!fails.length){closeSheet();toast('Backup restored'+(b.photos&&Object.keys(b.photos).length&&!(await cUse('assets'))?' · photos stay in the Claude version only':''));return}
+        if(!fails.length){closeSheet();toast('Backup restored');return}
         openBackup();$('bErr').innerHTML='<b>Restored, but '+fails.length+' part'+(fails.length>1?'s':'')+' could not be saved.</b> Try again with the same file; parts already saved are kept.<br><span style="font-weight:500;font-size:.75rem">'+esc(fails.slice(0,4).join(' · '))+'</span>';$('bErr').hidden=false};
       $('rMerge').onclick=()=>doRestore(false);
       $('rRepl').onclick=()=>{$('rConf').innerHTML='<p class="err" style="margin:8px 0">This deletes everything in PAKTAW now and puts the backup in its place.</p><button class="btn danger" id="rReplYes">Yes, replace everything</button>';$('rReplYes').onclick=()=>doRestore(true)};
@@ -2560,7 +2564,7 @@ function dailyModel(date,photos){
   if(D.bounced.length)blocks.push({type:'table',title:'Bounced cheques',cols:[{t:'Customer',w:3},{t:'Cheque',w:2},{t:'Amount',w:1.8,r:1}],rows:D.bounced.map(x=>[x.cu,x.cheque?x.cheque.no:'',x.amount])});
   blocks.push({type:'text',body:'Signature: ______________________________          Received by company: ______________________________'});
   const ph=D.ins.filter(x=>x.photo);
-  if(photos&&ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.map(photoItem),perPage:2});
+  if(photos&&ph.length)blocks.push({type:'images',title:'Attachments - manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.flatMap(photoItems),perPage:2});
   return {title:'Daily collection report',meta:[new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'})+' '+niceDate(date),C.rep?'Collected by '+C.rep:'','Generated '+niceDate(today())].filter(Boolean),company:C,blocks};
 }
 function openDaily(date){
@@ -2654,8 +2658,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('scrim').hidden)
 function nextPK(){const m=S.money.filter(x=>x.type==='in').map(x=>parseInt(String(x.no||'').replace(/\D/g,''))||0);return 'PK-'+String((m.length?Math.max(...m):0)+1).padStart(5,'0')}
 function receiptOf(k){return S.money.find(x=>x.type==='in'&&((x.inv||[]).includes(k)||(x.part&&x.part[k]!=null)))}
 function receiptsOf(k){return S.money.filter(x=>x.type==='in'&&((x.inv||[]).includes(k)||(x.part&&x.part[k]!=null)))}
-async function uploadAny(file){const assets=await cUse('assets');if(!assets)throw {code:'unavailable'};
-  const isImg=/^image\//.test(file.type||'');const r=await assets.upload(isImg?await shrinkImage(file):file);return {id:r.id,url:r.url,name:file.name||'',type:isImg?'image':(file.type||'file')}}
+async function uploadAny(file){return storeFile(file)}
 function attachHtml(f,label){if(!f)return '';const src=imgSrc(f);
   return f.type&&f.type!=='image'?'<a class="attach" href="'+esc(src)+'" target="_blank" rel="noopener">'+I('fileText')+'<span>'+esc(f.name||label||'Attachment')+'</span></a>':'<a class="attach img" href="'+esc(src)+'" target="_blank" rel="noopener"><img src="'+esc(src)+'" alt="'+esc(label||'Attachment')+'"></a>'}
 async function shrinkImage(file){
@@ -2667,7 +2670,18 @@ async function shrinkImage(file){
     const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82));return b||file;
   }catch(e){return file}
 }
-const imgSrc=ph=>ph?(ph.id?'/_blob/'+ph.id:ph.url):'';
+/* photos kept on this phone (IndexedDB) when the page runs outside Claude, e.g. GitHub Pages */
+const LP={db:null,urls:new Map(),
+  open(){if(this.db)return Promise.resolve(this.db);return new Promise((ok,no)=>{const r=indexedDB.open('paktaw-photos',1);r.onupgradeneeded=()=>r.result.createObjectStore('p');r.onsuccess=()=>{this.db=r.result;ok(r.result)};r.onerror=()=>no(r.error)})},
+  async put(id,blob){const db=await this.open();await new Promise((ok,no)=>{const t=db.transaction('p','readwrite');t.objectStore('p').put(blob,id);t.oncomplete=ok;t.onerror=()=>no(t.error);t.onabort=()=>no(t.error)});const o=this.urls.get(id);if(o)URL.revokeObjectURL(o);this.urls.set(id,URL.createObjectURL(blob))},
+  async loadAll(){const db=await this.open();await new Promise(ok=>{const t=db.transaction('p','readonly');const q=t.objectStore('p').openCursor();q.onsuccess=()=>{const c=q.result;if(c){if(!this.urls.has(c.key))this.urls.set(c.key,URL.createObjectURL(c.value));c.continue()}else ok()};q.onerror=()=>ok()})}};
+const imgSrc=ph=>ph?(LP.urls.get(ph.lid||ph.id)||(ph.id?'/_blob/'+ph.id:ph.url||'')):'';
+const phs=x=>x?(x.photos&&x.photos.length?x.photos:(x.photo?[x.photo]:[])):[];
+/* save a photo or file: to Claude when available, otherwise on this phone */
+async function storeFile(file,o){o=o||{};const isImg=/^image\//.test(file.type||'');const data=isImg&&!o.raw?await shrinkImage(file):file;const as=await cUse('assets');
+  if(as){const r=await as.upload(data);return {id:r.id,url:r.url,name:file.name||'',type:isImg?'image':(file.type||'file')}}
+  const lid='l'+uid();await LP.put(lid,data);try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  return {lid,name:file.name||'',type:isImg?'image':(file.type||'file')}}
 async function approveDraft(id){const x=S.moneyAll.find(m=>m.id===id);if(!x||x.status!=='draft')return;
   if(x.amount>0&&!x.manual){toast('Add the manual receipt number first.');openReceive([],'',id);return}
   const taken=(x.inv||[]).filter(k=>S.paid&&S.paid[k]&&S.money.some(m=>m.id!==id&&(m.inv||[]).includes(k)));
@@ -2733,7 +2747,7 @@ function openReceive(preKeys,cuName,editId){
    '<div class="shortbox" id="fShort" hidden></div>'+
    '<div class="grid2"><div class="field"><label class="lbl" for="fMan">Manual receipt no.</label><input class="inp num" id="fMan" inputmode="numeric" placeholder="From your receipt book" autocomplete="off"></div>'+
    '<div class="field"><label class="lbl" for="fManAmt">Amount on manual receipt</label><input class="inp num" id="fManAmt" inputmode="decimal" placeholder="Must match amount received"></div></div>'+
-   '<div class="field"><span class="lbl">Photo of manual receipt</span><label class="photo" id="fPhotoL"><input type="file" id="fPhoto" accept="image/*"><span id="fPhotoT">Tap to attach a photo</span><img id="fPhotoI" alt="Manual receipt photo" hidden></label></div>'+
+   '<div class="field"><span class="lbl">Photo of manual receipt</span><div class="phgrid" id="fPhList"></div><label class="photo sm" id="fPhotoL"><input type="file" id="fPhoto" accept="image/*" multiple><span id="fPhotoT">'+I('plus')+' Add photos (one or more)</span></label></div>'+
    '<div class="grid2"><div class="field"><label class="lbl" for="fDate">Date</label><input class="inp" id="fDate" type="date" value="'+today()+'"></div>'+
    '<div class="field"><span class="lbl">Method</span><div class="seg" id="fMeth"><button type="button" data-v="cash" aria-pressed="true">Cash</button><button type="button" data-v="transfer" aria-pressed="false">Transfer</button><button type="button" data-v="cheque" aria-pressed="false">Cheque</button></div></div></div>'+
    '<div class="chqbox" id="fChq" hidden><div class="chead"><span class="hic">'+I('cheque')+'</span><b>Cheque details</b></div><div class="grid3c"><div class="field"><label class="lbl" for="fChqNo">Cheque no.</label><input class="inp num" id="fChqNo" inputmode="numeric" autocomplete="off"></div><div class="field"><label class="lbl" for="fChqBank">Bank</label><input class="inp" id="fChqBank" list="bankList" autocomplete="off"><datalist id="bankList">'+[...new Set(S.moneyAll.filter(x=>x.cheque&&x.cheque.bank).map(x=>x.cheque.bank))].map(b=>'<option value="'+esc(b)+'">').join('')+'</datalist></div><div class="field"><label class="lbl" for="fChqDue">Due date</label><input class="inp" id="fChqDue" type="date" value="'+today()+'"></div></div></div>'+
@@ -2741,7 +2755,7 @@ function openReceive(preKeys,cuName,editId){
    '<div class="err" id="fErr" hidden></div>'+
    '<div class="actions"><button class="btn ghost" id="fCancel">Cancel</button>'+(!ed||ed.status==='draft'?'<button class="btn" id="fDraft">'+I('edit')+'Save as draft</button><button class="btn pri" id="fSave">'+I('check')+'Approve &amp; save</button>':'<button class="btn pri" id="fSave">Save changes</button>')+'</div>',
   ()=>{
-    let meth='cash',dt='amt',amtTouched=false,photo=null;const chosen=new Set(pre);const idisc={};let discOpen=null;let short=null,shortUser=false,lastAmt='';
+    let meth='cash',dt='amt',amtTouched=false;const pics=[];const chosen=new Set(pre);const idisc={};let discOpen=null;let short=null,shortUser=false,lastAmt='';
     let tf='all',matchOn=!!(ed&&ed.check),matchOpen=null;const match={},mm={};let rtype='return',rfile=null;
     if(ed&&ed.check){(ed.check.ok||[]).forEach(k=>match[k]='ok');(ed.check.bad||[]).forEach(b=>{match[b.k]='bad';mm[b.k]={note:b.note||'',amt:b.amt,cat:b.cat||'Price difference'}})}
     const draftOf=k=>(S.drafts||[]).find(x=>(!ed||x.id!==ed.id)&&(((x.inv||[]).includes(k))||(x.part&&x.part[k]!=null)));
@@ -2825,7 +2839,7 @@ function openReceive(preKeys,cuName,editId){
       if(ed.agreed){$('fLater').checked=true;$('fAmt').value=String(ed.agreed);$('fNow').value=String(ed.amount||0)}
       $('fMan').value=ed.manual||'';$('fManAmt').value=ed.manualAmt!=null?String(ed.manualAmt):'';$('fDate').value=ed.date||today();$('fNote').value=ed.note||'';
       meth=ed.method||'cash';setSeg('fMeth',meth);$('fChq').hidden=meth!=='cheque';if(ed.cheque){$('fChqNo').value=ed.cheque.no||'';$('fChqBank').value=ed.cheque.bank||'';$('fChqDue').value=ed.cheque.due||today()}
-      if(ed.photo){$('fPhotoI').src=imgSrc(ed.photo);$('fPhotoI').hidden=false;$('fPhotoT').textContent='Tap to change photo'}}
+      phs(ed).forEach(p=>pics.push({ref:p,src:imgSrc(p)}))}
     pick();laterUI();
     $('fCu').addEventListener('input',()=>{chosen.clear();amtTouched=false;sugg();pick()});
     $('fCu').addEventListener('focus',sugg);
@@ -2864,7 +2878,10 @@ function openReceive(preKeys,cuName,editId){
     $('fDisc').addEventListener('input',calc);
     $('fDiscT').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;dt=b.dataset.v;setSeg('fDiscT',dt);calc()});
     $('fMeth').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;meth=b.dataset.v;setSeg('fMeth',meth);$('fChq').hidden=meth!=='cheque'});
-    $('fPhoto').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;photo=f;const u=URL.createObjectURL(f);$('fPhotoI').src=u;$('fPhotoI').hidden=false;$('fPhotoT').textContent='Tap to change photo'});
+    const drawPics=()=>{$('fPhList').innerHTML=pics.map((p,i)=>'<span class="phth"><img src="'+esc(p.src)+'" alt="Photo '+(i+1)+'"><button type="button" data-rmpic="'+i+'" aria-label="Remove photo">✕</button></span>').join('');$('fPhotoT').innerHTML=I('plus')+(pics.length?' Add more photos · '+pics.length+' attached':' Add photos (one or more)')};
+    drawPics();
+    $('fPhoto').addEventListener('change',e=>{[...e.target.files].forEach(f=>pics.push({file:f,src:URL.createObjectURL(f)}));e.target.value='';drawPics()});
+    $('fPhList').addEventListener('click',e=>{const b=e.target.closest('[data-rmpic]');if(!b)return;e.preventDefault();pics.splice(+b.dataset.rmpic,1);drawPics()});
     $('fCancel').onclick=()=>{if(ed)openReceipt(ed.id);else closeSheet()};
     const doSave=async(approve)=>{const btn=approve?$('fSave'):$('fDraft');const btnTxt=btn.innerHTML;
       const err=m=>{$('fErr').textContent=m;$('fErr').hidden=false;$('fErr').scrollIntoView({block:'nearest'})};
@@ -2892,16 +2909,18 @@ function openReceive(preKeys,cuName,editId){
       }
       if(!date)return err('Pick the date.');
       btn.disabled=true;btn.textContent='Saving…';const reset=()=>{btn.disabled=false;btn.innerHTML=btnTxt};
-      let ph=ed?ed.photo||null:null;
-      if(photo){try{const assets=await cUse('assets');if(!assets)throw {code:'unavailable'};const r=await assets.upload(await shrinkImage(photo));ph={id:r.id,url:r.url}}
-        catch(e){reset();return err('Couldn’t upload the photo ('+(e.code||'error')+'). Try again, or remove the photo.')}}
+      const phAll=[];
+      for(const p of pics){if(p.ref){phAll.push(p.ref);continue}
+        try{const r=await storeFile(p.file);phAll.push(r.id?{id:r.id,url:r.url}:{lid:r.lid});p.ref=phAll[phAll.length-1]}
+        catch(e){reset();return err('Couldn’t save photo '+(phAll.length+1)+' ('+(e.code||e.name||'error')+'). Try again, or remove that photo.')}}
+      const ph=phAll[0]||null;
       const ct=(inv.find(i=>i.cu===name)||customers().find(c=>c.name===name)||{}).ct||'pharmacy';
       const used=new Set([...A.full,...Object.keys(A.part)]);const dInvU=t.sel.filter(i=>used.has(i.k)).reduce((q,i)=>q+iDiscAmt(i),0);
       const id=ed?ed.id:'m_'+uid();
       const rec={type:'in',no:pk,manual:man,manualAmt:isNaN(manAmt)?null:manAmt,cu:name,ct,amount:amt,discount:Math.round((dInvU+(t.dAll||0)+(t.dRound||0))*100)/100,discInv:dInvU,discAll:t.dAll||0,discPct:dt==='pct'&&t.dAll?toNum($('fDisc').value):null,discRound:t.dRound||0,agreed:later?agreedAmt:null,gross:t.net,sales:t.sa,returns:t.re,date,method:meth,note:$('fNote').value.trim(),
         inv:A.full,part:A.isPart?A.part:null,partial:A.isPart,
         lines:t.sel.filter(i=>A.full.includes(i.k)||A.part[i.k]!=null).map(i=>({k:i.k,n:i.n,it:i.it,a:i.a,d:invDate(i),paid:A.part[i.k]!=null?A.part[i.k]:i.a,disc:iDiscAmt(i)||0,dl:idisc[i.k]&&idisc[i.k].t==='pct'?idisc[i.k].v+'%':''})),
-        cheque:meth==='cheque'?{no:$('fChqNo').value.trim(),bank:$('fChqBank').value.trim(),due:$('fChqDue').value,status:'pending'}:null,photo:ph,at:ed?ed.at:Date.now(),edited:ed?Date.now():undefined,
+        photos:phAll.length>1?phAll:null,cheque:meth==='cheque'?{no:$('fChqNo').value.trim(),bank:$('fChqBank').value.trim(),due:$('fChqDue').value,status:'pending'}:null,photo:ph,at:ed?ed.at:Date.now(),edited:ed?Date.now():undefined,
         status:approve?'approved':'draft',approvedAt:approve?(ed&&ed.approvedAt||Date.now()):null,
         check:matchOn?{ok:custAll().filter(i=>match[i.k]==='ok').map(i=>i.k),bad:custAll().filter(i=>match[i.k]==='bad').map(i=>Object.assign({k:i.k,n:i.n},mm[i.k]||{}))}:null};
       if(rec.edited===undefined)delete rec.edited;
@@ -2941,7 +2960,7 @@ function openReceipt(id){
     (x.manualAmt!=null?'<div class="rl"><span>On manual receipt</span><b class="num">'+fmt(x.manualAmt)+(Math.abs(x.manualAmt-x.amount)<=0.5||(x.agreed&&Math.abs(x.manualAmt-x.agreed)<=0.5)?' ✓':'')+'</b></div>':'')+
     (x.note?'<div class="rl"><span>Note</span><b>'+esc(x.note)+'</b></div>':'')+
    '</div>'+chq+
-   (x.photo?'<div class="field"><span class="lbl">Manual receipt photo</span><img class="rphoto" src="'+esc(imgSrc(x.photo))+'" alt="Photo of manual receipt '+esc(x.manual||'')+'"></div>':'<p class="hint" style="margin:0">No photo attached.</p>')+
+   (phs(x).length?'<div class="field"><span class="lbl">Manual receipt photo'+(phs(x).length>1?'s · '+phs(x).length:'')+'</span>'+phs(x).map((p,i)=>'<a href="'+esc(imgSrc(p))+'" target="_blank" rel="noopener"><img class="rphoto" src="'+esc(imgSrc(p))+'" alt="Photo '+(i+1)+' of manual receipt '+esc(x.manual||'')+'"></a>').join('')+'</div>':'<p class="hint" style="margin:0">No photo attached.</p>')+
    (x.status==='draft'?'<div class="draftbar">'+I('edit')+'<span><b>Draft</b> · not counted and invoices stay unpaid until you approve it.</span><button type="button" class="btn sm pri" id="rApprove">'+I('check')+'Approve</button></div>':'')+
    (x.check&&x.check.bad&&x.check.bad.length?'<div class="limwarn near">'+I('alert')+'<span><b>'+x.check.bad.length+' invoice'+(x.check.bad.length>1?'s':'')+' did not match</b> and became issues: '+x.check.bad.map(b=>'#'+esc(b.n)).join(', ')+'</span></div>':'')+
    '<div class="actions"><button class="btn ghost danger" data-del="'+esc(x.id)+'">Delete receipt</button><button class="btn ghost" id="rEdit">'+I('edit')+'Edit</button><button class="btn ghost" id="rPdf">'+XICON+'Export</button><button class="btn" id="rClose">Close</button></div>',
@@ -3367,7 +3386,7 @@ function monthEndModel(ym,withPhotos){
   if(D.chq.length)blocks.push({type:'table',title:'Cheques not cleared yet',sub:D.chq.length+' cheques',cols:[{t:'Receipt',w:1.3,b:1},{t:'Customer',w:2.6},{t:'Cheque no.',w:1.3},{t:'Bank',w:1.5},{t:'Due',w:1.3},{t:'Amount',w:1.6,r:1}],rows:D.chq.map(x=>[x.no,x.cu,x.cheque.no||'-',x.cheque.bank||'-',niceDate(x.cheque.due),x.amount])});
   if(D.bounced.length)blocks.push({type:'table',title:'Bounced cheques',sub:D.bounced.length,cols:[{t:'Receipt',w:1.3,b:1},{t:'Customer',w:3},{t:'Cheque no.',w:1.5},{t:'Amount',w:1.6,r:1}],rows:D.bounced.map(x=>[x.no,x.cu,(x.cheque||{}).no||'-',x.amount])});
   if(D.agr.length)blocks.push({type:'table',title:'Agreed balances still to collect',sub:D.agr.length,cols:[{t:'Agreement',w:1.8,b:1},{t:'Customer',w:3},{t:'Since',w:1.3},{t:'Still owed',w:1.8,r:1,b:1}],rows:D.agr.map(i=>[i.n,i.cu,niceDate(i.d),i.a]),foot:['Total','','',D.agr.reduce((a,i)=>a+i.a,0)]});
-  if(withPhotos){const ph=D.rin.filter(x=>x.photo);if(ph.length)blocks.push({type:'images',title:'Manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.map(photoItem),perPage:2})}
+  if(withPhotos){const ph=D.rin.filter(x=>x.photo);if(ph.length)blocks.push({type:'images',title:'Manual receipt photos',sub:ph.length+' photos',pageBreak:true,items:ph.flatMap(photoItems),perPage:2})}
   return {title:ym.includes('..')?'Collections report':'Month-end report',meta:[monthName(ym),C.rep?'Collected by '+C.rep:'','Generated '+niceDate(today())].filter(Boolean),company:C,blocks};
 }
 function defaultMonth(){const d=new Date();const m=d.getDate()<=10?new Date(d.getFullYear(),d.getMonth()-1,1):d;return m.getFullYear()+'-'+pad(m.getMonth()+1)}
@@ -3793,6 +3812,7 @@ hydrateIcons();applyBrand();
 $('brandBtn').onclick=()=>openCompany();$('setBtn').onclick=()=>openSettings();
 route();
 Store.init(rebuild);
+try{LP.loadAll().then(()=>{if(LP.urls.size){applyBrand();render()}}).catch(()=>{})}catch(e){}
 })();
 </script>
 
